@@ -6,6 +6,7 @@ __pycache__/
 
 # Virtual environment
 venv/
+.venv/
 .idea
 .history/
 .run/
@@ -27,6 +28,7 @@ Thumbs.db
 
 # audio files
 audiobook_output/
+audiobook_data/
 
 private_examples/
 

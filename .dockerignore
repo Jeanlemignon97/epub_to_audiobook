@@ -34,3 +34,7 @@ private_examples/
 tests
 logs/
 venv/
+.venv
+venv
+audiobook_data
+.worktrees

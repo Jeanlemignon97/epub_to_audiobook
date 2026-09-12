@@ -1,4 +1,81 @@
-# EPUB to Audiobook Converter [![Discord](https://img.shields.io/discord/1177631634724491385?label=Discord&logo=discord&logoColor=white)](https://discord.com/invite/pgp2G8zhS7) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/p0n1/epub_to_audiobook)
+# EPUB vers livre audio — file personnelle
+
+Cette version transforme jusqu’à **trois EPUB par ajout** en livres audio avec
+une file persistante. Un seul livre est converti à la fois afin de maîtriser le
+coût et les limites des fournisseurs. Les chapitres terminés sont réutilisés
+après une pause ou une erreur, puis assemblés dans **un seul fichier M4B par
+livre**, avec des marqueurs de chapitres.
+
+## Démarrage rapide avec Docker
+
+Prérequis : Docker Desktop ou Docker Engine avec Compose.
+
+1. Copiez la configuration :
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Pour la voix la plus naturelle, ouvrez `.env` et renseignez
+   `OPENAI_API_KEY`. La clé reste sur votre machine et n’est jamais enregistrée
+   dans la base de données. Vous pouvez aussi choisir **Edge (gratuit)** dans
+   l’interface sans ajouter de clé.
+
+3. Construisez et lancez l’application :
+
+   ```bash
+   docker compose -f docker-compose.webui.yml up --build
+   ```
+
+4. Ouvrez [http://127.0.0.1:7860](http://127.0.0.1:7860), choisissez une voix,
+   écoutez l’extrait, puis déposez de un à trois EPUB.
+
+Les résultats restent dans `audiobook_data/jobs/<identifiant>/`. Chaque dossier
+contient l’EPUB importé, les MP3 intermédiaires réutilisables et le M4B final.
+
+## Quel moteur choisir ?
+
+- **OpenAI / `gpt-4o-mini-tts`** : choix recommandé pour une narration
+  chaleureuse, des pauses naturelles et des instructions de style. Son coût est
+  estimé avant la conversion ; vous pouvez fixer un plafond par livre.
+- **Edge** : option gratuite utile pour tester tout le parcours. La voix est
+  correcte, mais généralement moins expressive.
+
+Le nombre de chapitres ou de fichiers intermédiaires ne change presque pas le
+coût : celui-ci dépend surtout de la quantité de texte et de l’audio généré.
+
+## Pause, erreur et reprise
+
+- **Mettre en pause** arrête le livre actif et conserve les chapitres valides.
+- **Reprendre** replace un livre en pause dans la file.
+- **Réessayer** relance un livre en erreur sans refaire les chapitres terminés.
+- Si FFmpeg échoue pendant le M4B, les MP3 restent disponibles.
+
+## Tests développeur
+
+Avec Python 3.11 :
+
+```bash
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt pytest
+.venv/bin/python -m pytest -q
+docker compose -f docker-compose.webui.yml config
+```
+
+La suite n’appelle aucun fournisseur TTS réel. Pour un essai sans dépense,
+choisissez Edge et commencez avec l’EPUB présent dans `examples/`.
+
+## Limites connues de cette première version
+
+- EPUB sans DRM uniquement ; aucun contournement de DRM n’est fourni.
+- Pas de traduction de langue ni de surlignage synchronisé du texte.
+- L’estimation de coût est indicative et doit être vérifiée avant un gros lot.
+
+---
+
+# Projet d’origine
+
+[![Discord](https://img.shields.io/discord/1177631634724491385?label=Discord&logo=discord&logoColor=white)](https://discord.com/invite/pgp2G8zhS7) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/p0n1/epub_to_audiobook)
 
 *Join our [Discord](https://discord.com/invite/pgp2G8zhS7) server for any questions or discussions. You can also ask questions about this project on [DeepWiki](https://deepwiki.com/p0n1/epub_to_audiobook).*
 

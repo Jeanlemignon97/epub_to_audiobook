@@ -68,3 +68,13 @@ def test_cancelled_generator_stops_before_provider_call(tmp_path: Path):
         assert not generator.process_chapter(1, "Un chapitre", "Texte", FakeBook())
 
     assert provider.calls == 0
+
+
+def test_run_reports_failure_when_setup_raises(tmp_path: Path):
+    generator = AudiobookGenerator(config(tmp_path))
+
+    with patch(
+        "audiobook_generator.core.audiobook_generator.get_book_parser",
+        side_effect=RuntimeError("EPUB illisible"),
+    ):
+        assert generator.run() is False
