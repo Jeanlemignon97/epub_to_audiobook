@@ -1,10 +1,12 @@
 import logging
 import multiprocessing
 import os
+from pathlib import Path
 
 from audiobook_generator.book_parsers.base_book_parser import get_book_parser
 from audiobook_generator.config.general_config import GeneralConfig
 from audiobook_generator.core.audio_tags import AudioTags
+from audiobook_generator.core.progress import ProgressEvent
 from audiobook_generator.tts_providers.base_tts_provider import get_tts_provider
 from audiobook_generator.utils.log_handler import setup_logging
 from audiobook_generator.utils.filename_sanitizer import make_safe_filename
@@ -28,8 +30,14 @@ def get_total_chars(chapters):
 
 
 class AudiobookGenerator:
-    def __init__(self, config: GeneralConfig):
+    def __init__(self, config: GeneralConfig, progress_callback=None, cancel_event=None):
         self.config = config
+        self.progress_callback = progress_callback
+        self.cancel_event = cancel_event
+
+    def _emit_progress(self, idx, state, path=""):
+        if self.progress_callback:
+            self.progress_callback(ProgressEvent(idx, None, state, path))
 
     def __str__(self) -> str:
         return f"{self.config}"
@@ -37,6 +45,9 @@ class AudiobookGenerator:
     def process_chapter(self, idx, title, text, book_parser):
         """Process a single chapter: write text (if needed) and convert to audio."""
         try:
+            if self.cancel_event is not None and self.cancel_event.is_set():
+                self._emit_progress(idx, "cancelled")
+                return False
             logger.info(f"Processing chapter {idx}: {title}")
             tts_provider = get_tts_provider(self.config)
 
@@ -68,16 +79,34 @@ class AudiobookGenerator:
             )
             output_file = os.path.join(self.config.output_folder, safe_audio_name)
 
+            # A valid final file is a durable checkpoint. This makes retries and
+            # restarts inexpensive and prevents duplicate provider charges.
+            if os.path.isfile(output_file) and os.path.getsize(output_file) > 0:
+                logger.info(f"♻️ Reusing completed chapter {idx}: {output_file}")
+                self._emit_progress(idx, "reused", output_file)
+                return True
+
+            final_path = Path(output_file)
+            temporary_path = final_path.with_name(
+                f".{final_path.stem}.part{final_path.suffix}"
+            )
+            temporary_path.unlink(missing_ok=True)
+
             audio_tags = AudioTags(
                 title, book_parser.get_book_author(), book_parser.get_book_title(), idx
             )
-            tts_provider.text_to_speech(text, output_file, audio_tags)
+            tts_provider.text_to_speech(text, str(temporary_path), audio_tags)
+            if not temporary_path.is_file() or temporary_path.stat().st_size == 0:
+                raise RuntimeError(f"Audio vide généré pour le chapitre {idx}")
+            os.replace(temporary_path, final_path)
 
             logger.info(f"✅ Converted chapter {idx}: {title}, output file: {output_file}")
+            self._emit_progress(idx, "completed", output_file)
 
             return True
         except Exception as e:
             logger.exception(f"Error processing chapter {idx}, error: {e}")
+            self._emit_progress(idx, "failed")
             return False
 
     def process_chapter_wrapper(self, args):
@@ -175,4 +204,3 @@ class AudiobookGenerator:
             logger.exception(f"Error during audiobook generation: {e}")
         finally:
             logger.debug("AudiobookGenerator.run() method finished.")
-
