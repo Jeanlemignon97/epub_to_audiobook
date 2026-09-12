@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from audiobook_generator.queue.models import JobStatus
 from audiobook_generator.queue.service import QueueService
 
@@ -48,3 +50,10 @@ def test_service_retry_starts_runner(tmp_path: Path):
 
     assert service.store.get(job.id).status is JobStatus.PENDING
     assert service.runner.started
+
+
+def test_service_limits_each_import_to_three_books(tmp_path: Path):
+    service = QueueService(tmp_path / "data", runner_factory=IdleRunner)
+
+    with pytest.raises(ValueError, match="maximum 3 EPUB"):
+        service.add_books([EXAMPLE] * 4, "edge", "", "fr-FR-DeniseNeural")

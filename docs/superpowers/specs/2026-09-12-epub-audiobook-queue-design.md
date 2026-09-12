@@ -9,7 +9,8 @@ habituelle de l’utilisateur ; la V1 ne synchronise pas le texte et l’audio.
 
 ## Périmètre de la V1
 
-- Importer un ou plusieurs fichiers `.epub` depuis une interface web locale.
+- Importer jusqu’à trois fichiers `.epub` par ajout depuis une interface web
+  locale. Les conversions restent séquentielles dans la V1.
 - Analyser le titre, l’auteur, le nombre de chapitres, le volume de texte, la
   durée vocale approximative et le coût estimé.
 - Générer un extrait vocal court avant les conversions payantes.

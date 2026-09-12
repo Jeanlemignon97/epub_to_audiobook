@@ -73,7 +73,7 @@ class QueueRunner:
         ]
         if job.model:
             command.extend(["--model_name", job.model])
-        if job.provider == "openai":
+        if job.provider == "openai" and job.model == "gpt-4o-mini-tts":
             command.extend([
                 "--language", "fr-FR", "--instructions",
                 "Voix chaleureuse, posée et humaine. Articulation claire, rythme naturel, "

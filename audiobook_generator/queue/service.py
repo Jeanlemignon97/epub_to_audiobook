@@ -12,12 +12,15 @@ from audiobook_generator.queue.store import JobStore
 
 
 class QueueService:
+    MAX_FILES_PER_IMPORT = 3
+
     def __init__(self, data_dir: str | Path = "audiobook_data", runner_factory=QueueRunner):
         self.data_dir = Path(data_dir).resolve()
         self.jobs_dir = self.data_dir / "jobs"
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
         self.store = JobStore(self.data_dir / "queue.sqlite3")
         self.runner = runner_factory(self.store)
+        self._closed = False
 
     def add_books(
         self,
@@ -27,8 +30,13 @@ class QueueService:
         voice: str,
         max_cost: float | None = None,
     ) -> list[BookJob]:
+        files = list(files or [])
+        if len(files) > self.MAX_FILES_PER_IMPORT:
+            raise ValueError(
+                f"Vous pouvez ajouter au maximum {self.MAX_FILES_PER_IMPORT} EPUB à la fois."
+            )
         jobs = []
-        for uploaded in files or []:
+        for uploaded in files:
             source = Path(uploaded if isinstance(uploaded, (str, os.PathLike)) else uploaded.name)
             job_id = str(uuid.uuid4())
             job_dir = self.jobs_dir / job_id
@@ -73,5 +81,8 @@ class QueueService:
         shutil.rmtree(Path(job.output_dir).parent, ignore_errors=True)
 
     def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
         self.runner.stop()
         self.store.close()
