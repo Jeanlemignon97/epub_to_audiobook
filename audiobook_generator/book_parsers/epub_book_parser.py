@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 BLOCK_TAGS = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote"}
 NON_NARRATED_TITLES = {"cover", "couverture", "contents", "sommaire", "table des matières", "index"}
 SENTENCE_ENDINGS = (".", "!", "?", "…", ";", ":", ",")
+DECORATIVE_LIST_PREFIX = re.compile(r"^[▶►▸◀✓✔•●▪]\s*")
+DECORATIVE_INLINE_MARKER = re.compile(r"\s+[▶►▸◀✓✔•●▪]\s+")
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,7 @@ class TextBlock:
     anchors: tuple[str, ...]
     text: str
     heading: bool
+    list_item: bool = False
 
 
 def _heading_key(value: str) -> str:
@@ -81,6 +84,10 @@ class EpubBookParser(BaseBookParser):
                         for node in page_numbers + tag.find_all("b", recursive=False):
                             node.decompose()
                 text = re.sub(r"\s+", " ", tag.get_text(" ", strip=True)).strip()
+                list_item = bool(DECORATIVE_LIST_PREFIX.match(text))
+                if list_item:
+                    text = DECORATIVE_LIST_PREFIX.sub("", text, count=1).strip()
+                text = DECORATIVE_INLINE_MARKER.sub(" ", text)
                 first_italic = tag.find(["i", "em"], recursive=False)
                 if first_italic and re.fullmatch(r"[A-ZÀ-Ý]", first_italic.get_text(strip=True)):
                     text = re.sub(r"^([A-ZÀ-Ý]) ([a-zà-ÿ]+)", r"\1\2", text)
@@ -95,7 +102,7 @@ class EpubBookParser(BaseBookParser):
                 heading = tag.name.startswith("h") or (
                     not direct_text and tag.find(["b", "strong", "i", "em"]) is not None
                 )
-                blocks.append(TextBlock(file_name, anchors, text, heading))
+                blocks.append(TextBlock(file_name, anchors, text, heading, list_item))
             soup.decompose()
         return blocks
 
@@ -152,7 +159,7 @@ class EpubBookParser(BaseBookParser):
                 if self.config.newline_mode != "none" and pieces:
                     pieces.append(break_string)
                 continue
-            if block.heading and self.config.newline_mode != "none" and pieces:
+            if (block.heading or block.list_item) and self.config.newline_mode != "none" and pieces:
                 pieces.append(break_string)
             elif self.config.newline_mode == "single" and pieces:
                 pieces.append(break_string)
@@ -163,7 +170,7 @@ class EpubBookParser(BaseBookParser):
             ):
                 pieces.append(soft_break_string)
             pieces.append(block.text)
-            if block.heading and self.config.newline_mode != "none":
+            if (block.heading or block.list_item) and self.config.newline_mode != "none":
                 pieces.append(break_string)
             previous_text = block.text
         text = " ".join(pieces)

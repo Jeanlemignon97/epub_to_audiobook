@@ -21,6 +21,9 @@ def make_parser(tmp_path: Path) -> EpubBookParser:
       <p>Voici la première ligne</p><p>et sa suite sans ponctuation.</p>
       <p></p><p>Autre paragraphe.</p><p>12</p><p>En 2026, tout change.</p>
       <p><i>N</i> ous avançons.</p>
+      <p>▶ Titre à écouter ?</p><p>Une phrase suit.</p>
+      <p>✓ Première idée</p><p>• Seconde idée</p><p>La lecture continue.</p>
+      <p><b>À retenir !</b> ✓ <b>Vérifier les frais.</b> Ils comptent.</p>
       <p><a id="p12"></a><i>12</i><b>Première partie : Les bases</b> Et la phrase reprend.</p>
       <p><b>Chapitre 1 : Un nouveau titre</b></p>
       <p id="two"><b>Chapitre 2</b></p><p>Deuxième texte.</p>
@@ -109,6 +112,15 @@ def test_break_marker_does_not_trim_first_letter_of_heading(tmp_path: Path):
     )
 
     assert text == "Récapitulons"
+
+
+def test_decorative_list_symbols_are_not_spoken_and_items_breathe(tmp_path: Path):
+    chapter = make_parser(tmp_path).get_chapters("@BRK#", "@SBRK#")[2][1]
+
+    assert "@BRK#Titre à écouter ?@BRK#Une phrase suit." in chapter
+    assert "@BRK#Première idée@BRK#Seconde idée@BRK#La lecture continue." in chapter
+    assert "À retenir ! Vérifier les frais. Ils comptent." in chapter
+    assert not any(symbol in chapter for symbol in "▶✓•")
 
 
 def test_prefers_original_heading_over_later_repeated_page_header():
