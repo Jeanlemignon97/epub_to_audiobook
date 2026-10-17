@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import os
 import shutil
 import uuid
-import os
 from pathlib import Path
 
 from audiobook_generator.queue.analyzer import analyze_epub
-from audiobook_generator.queue.models import BookJob
+from audiobook_generator.queue.models import BookJob, JobStatus
 from audiobook_generator.queue.naming import safe_book_name
 from audiobook_generator.queue.runner import QueueRunner
 from audiobook_generator.queue.store import JobStore
@@ -95,6 +96,34 @@ class QueueService:
         job = self.store.get(job_id)
         self.store.delete(job_id)
         shutil.rmtree(Path(job.output_dir).parent, ignore_errors=True)
+
+    def remove_duplicates(self) -> int:
+        groups: dict[tuple[str, str, str, str, str], list[BookJob]] = {}
+        for job in self.store.list_jobs():
+            if job.status is JobStatus.FAILED:
+                continue
+            try:
+                with Path(job.source_path).open("rb") as source:
+                    digest = hashlib.file_digest(source, "sha256").hexdigest()
+            except FileNotFoundError:
+                continue
+            key = (digest, job.provider, job.model, job.voice, job.destination_dir)
+            groups.setdefault(key, []).append(job)
+
+        removed = 0
+        for jobs in groups.values():
+            keeper = next(
+                (job for job in jobs if job.status is JobStatus.CONVERTING),
+                next((job for job in jobs if job.status is JobStatus.COMPLETED), jobs[0]),
+            )
+            for job in jobs:
+                if job.id == keeper.id:
+                    continue
+                current = self.store.get(job.id)
+                if current.status in {JobStatus.PENDING, JobStatus.PAUSED} and not current.completed_chapters:
+                    self.delete(job.id)
+                    removed += 1
+        return removed
 
     def close(self) -> None:
         if self._closed:

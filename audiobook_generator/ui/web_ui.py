@@ -112,6 +112,17 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
             message = f"❌ {exc}"
         return message, *_refresh(service, selected_id)
 
+    def remove_duplicates(selected_id):
+        try:
+            count = service.remove_duplicates()
+            message = (
+                f"✅ {count} doublon(s) retiré(s) de la file."
+                if count else "Aucun doublon en attente ou en pause."
+            )
+        except Exception as exc:
+            message = f"❌ {exc}"
+        return message, *_refresh(service, selected_id)
+
     with gr.Blocks(
         analytics_enabled=False,
         title="Mes livres audio",
@@ -175,6 +186,9 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
                     resume_button = gr.Button("Reprendre")
                     retry_button = gr.Button("Réessayer")
                     delete_button = gr.Button("Retirer")
+                duplicates_button = gr.Button(
+                    "Retirer les doublons en attente", elem_classes="dedupe-action"
+                )
                 download = gr.File(label="Télécharger le M4B", interactive=False, visible=False)
 
             gr.HTML("""
@@ -206,6 +220,10 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
         )
         delete_button.click(
             lambda job_id: act("delete", job_id), selected_job,
+            [notice, queue_html, selected_job, download],
+        )
+        duplicates_button.click(
+            remove_duplicates, selected_job,
             [notice, queue_html, selected_job, download],
         )
         timer = gr.Timer(2.0)

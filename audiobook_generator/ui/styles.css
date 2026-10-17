@@ -74,6 +74,7 @@
 
 button, [role="button"], input, select, textarea { min-height: 48px; }
 button.primary { background: var(--amber) !important; color: #172033 !important; font-weight: 800 !important; }
+.dedupe-action button { white-space: normal; height: auto; min-height: 48px; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 3px solid #ffd17a !important; outline-offset: 2px;
 }
@@ -101,6 +102,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .settings-row { flex-direction: column !important; }
   .settings-row > * { width: 100% !important; min-width: 0 !important; }
   .action-row { flex-direction: column; }
+  .action-row > * { width: 100% !important; min-width: 0 !important; }
 }
 
 @media (min-width: 600px) and (max-width: 839px) {

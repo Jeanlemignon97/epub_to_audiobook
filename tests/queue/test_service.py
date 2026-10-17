@@ -75,3 +75,24 @@ def test_service_records_destination_and_keeps_api_key_in_memory(tmp_path: Path)
     assert "temporary-key" not in (tmp_path / "data" / "queue.sqlite3").read_bytes().decode(
         "utf-8", errors="ignore"
     )
+
+
+def test_remove_duplicates_keeps_active_book_and_different_voice(tmp_path: Path):
+    service = QueueService(tmp_path / "data", runner_factory=IdleRunner)
+    originals = service.add_books(
+        [EXAMPLE, EXAMPLE, EXAMPLE], "edge", "", "fr-FR-HenriNeural"
+    )
+    other_voice = service.add_books(
+        [EXAMPLE], "edge", "", "fr-FR-DeniseNeural"
+    )[0]
+    service.store.transition(originals[0].id, JobStatus.CONVERTING)
+    duplicate_paths = [Path(job.source_path) for job in originals[1:]]
+
+    removed = service.remove_duplicates()
+
+    assert removed == 2
+    assert {job.id for job in service.list_jobs()} == {originals[0].id, other_voice.id}
+    assert Path(originals[0].source_path).is_file()
+    assert Path(other_voice.source_path).is_file()
+    assert all(not path.exists() for path in duplicate_paths)
+    assert EXAMPLE.is_file()
