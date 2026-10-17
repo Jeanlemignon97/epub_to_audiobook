@@ -2,6 +2,7 @@ import asyncio
 import logging
 import math
 import io
+import re
 from time import sleep
 
 import edge_tts
@@ -50,6 +51,8 @@ class CommWithPauses:
         voice_name: str,
         break_string: str,
         break_duration: int = 1250,
+        soft_break_string: str = "",
+        soft_break_duration: int = 220,
         output_format_ext: str = "mp3",
         **kwargs,
     ) -> None:
@@ -57,6 +60,8 @@ class CommWithPauses:
         self.voice_name = voice_name
         self.break_string = break_string
         self.break_duration = int(break_duration)
+        self.soft_break_string = soft_break_string
+        self.soft_break_duration = int(soft_break_duration)
         self.output_format_ext = output_format_ext
         self.kwargs = kwargs
 
@@ -68,17 +73,28 @@ class CommWithPauses:
             "Parsing the text, looking for break/pauses in text: "
             f"<{self.full_text}>"
         )
-        if self.break_string not in self.full_text:
+        markers = {
+            self.break_string: self.break_duration,
+            self.soft_break_string: self.soft_break_duration,
+        }
+        markers.pop("", None)
+        if not any(marker in self.full_text for marker in markers):
             logger.debug("No break/pauses found in the text")
+            self.pause_durations = []
             return [self.full_text]
 
-        parts = self.full_text.split(self.break_string)
-
-        # Filter out empty parts and parts that don't contain meaningful text which may cause NoAudioReceived error in Edge TTS, then strip each meaningful part
+        parts = re.split("(" + "|".join(re.escape(marker) for marker in markers) + ")", self.full_text)
         meaningful_parts = []
+        self.pause_durations = []
+        pending_pause = 0
         for part in parts:
-            if self._is_meaningful_text(part):
+            if part in markers:
+                pending_pause = max(pending_pause, markers[part])
+            elif self._is_meaningful_text(part):
+                if meaningful_parts:
+                    self.pause_durations.append(pending_pause)
                 meaningful_parts.append(part.strip())
+                pending_pause = 0
         
         logger.debug(f"split into <{len(meaningful_parts)}> meaningful parts: {meaningful_parts}")
         return meaningful_parts
@@ -113,13 +129,12 @@ class CommWithPauses:
 
     async def chunkify(self):
         logger.debug("Chunkifying the text")
-        for content in self.parsed:
+        for index, content in enumerate(self.parsed):
             logger.debug(f"content from parsed: <{content}>")
             audio_bytes = await self.generate_audio(content)
             self.file.write(audio_bytes)
-            if content != self.parsed[-1] and self.break_duration > 0:
-                # only same break duration for all breaks is supported now
-                pause_bytes = self.generate_pause(self.break_duration)
+            if index < len(self.pause_durations) and self.pause_durations[index] > 0:
+                pause_bytes = self.generate_pause(self.pause_durations[index])
                 self.file.write(pause_bytes)
         logger.debug("Chunkifying done")
 
@@ -231,6 +246,8 @@ class EdgeTTSProvider(BaseTTSProvider):
                         voice_name=self.config.voice_name,
                         break_string=self.get_break_string().strip(),
                         break_duration=int(self.config.break_duration),
+                        soft_break_string=self.get_soft_break_string(),
+                        soft_break_duration=220,
                         output_format_ext=self.get_output_file_extension(),
                         rate=self.config.voice_rate,
                         volume=self.config.voice_volume,
@@ -269,6 +286,9 @@ class EdgeTTSProvider(BaseTTSProvider):
 
     def get_break_string(self):
         return " @BRK#"
+
+    def get_soft_break_string(self):
+        return "@SBRK#"
 
     def get_output_file_extension(self):
         if self.config.output_format.endswith("mp3"):

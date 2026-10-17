@@ -1,7 +1,9 @@
 import logging
 import posixpath
 import re
+import unicodedata
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import List, Tuple
 from urllib.parse import unquote
 
@@ -15,6 +17,7 @@ from audiobook_generator.config.general_config import GeneralConfig
 logger = logging.getLogger(__name__)
 BLOCK_TAGS = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote"}
 NON_NARRATED_TITLES = {"cover", "couverture", "contents", "sommaire", "table des matières", "index"}
+SENTENCE_ENDINGS = (".", "!", "?", "…", ";", ":", ",")
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,14 @@ class TextBlock:
     anchors: tuple[str, ...]
     text: str
     heading: bool
+
+
+def _heading_key(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value.casefold())
+    return re.sub(
+        r"[^a-z0-9]+", "",
+        "".join(char for char in normalized if not unicodedata.combining(char)),
+    )
 
 
 class EpubBookParser(BaseBookParser):
@@ -91,22 +102,51 @@ class EpubBookParser(BaseBookParser):
     def _navigation(self) -> list[tuple[str, str, str]]:
         entries = []
 
-        def visit(nodes, depth=0):
+        def visit(nodes):
             for entry in nodes:
                 node, children = entry if isinstance(entry, tuple) else (entry, ())
-                if depth <= 1:
-                    title = re.sub(r"\s+", " ", node.title).strip()
-                    href = getattr(node, "href", "") or ""
-                    if title and href:
-                        file_name, _, anchor = unquote(href).partition("#")
-                        entries.append((title, posixpath.normpath(file_name), anchor))
-                visit(children, depth + 1)
+                title = re.sub(r"\s+", " ", node.title).strip()
+                href = getattr(node, "href", "") or ""
+                if title and href:
+                    file_name, _, anchor = unquote(href).partition("#")
+                    entries.append((title, posixpath.normpath(file_name), anchor))
+                visit(children)
 
         visit(self.book.toc)
         return entries
 
-    def _clean_text(self, blocks: list[TextBlock], break_string: str) -> str:
+    @staticmethod
+    def _heading_position(blocks: list[TextBlock], title: str, start: int, end: int) -> int | None:
+        target = _heading_key(title)
+        best_score = 0.0
+        best_position = None
+        for position in range(start, end):
+            if not blocks[position].heading or not blocks[position].text:
+                continue
+            position_score = 0.0
+            for width in (1, 2, 3):
+                candidate = _heading_key(" ".join(
+                    block.text for block in blocks[position:position + width]
+                ))[:max(len(target) + 10, 30)]
+                if not candidate:
+                    continue
+                score = SequenceMatcher(None, target, candidate).ratio()
+                if target in candidate:
+                    score = max(score, 0.97)
+                position_score = max(position_score, score)
+                if score > best_score:
+                    best_score, best_position = score, position
+            # The navigation anchor is more trustworthy than a perfect match
+            # in a repeated running header several pages later.
+            if position_score >= 0.90:
+                return position
+        return best_position if best_score >= 0.70 else None
+
+    def _clean_text(
+        self, blocks: list[TextBlock], break_string: str, soft_break_string: str = ""
+    ) -> str:
         pieces = []
+        previous_text = ""
         for block in blocks:
             if not block.text:
                 if self.config.newline_mode != "none" and pieces:
@@ -116,15 +156,26 @@ class EpubBookParser(BaseBookParser):
                 pieces.append(break_string)
             elif self.config.newline_mode == "single" and pieces:
                 pieces.append(break_string)
+            elif (
+                soft_break_string and self.config.newline_mode != "none"
+                and previous_text and not previous_text.endswith(SENTENCE_ENDINGS)
+                and pieces and pieces[-1] != break_string
+            ):
+                pieces.append(soft_break_string)
             pieces.append(block.text)
             if block.heading and self.config.newline_mode != "none":
                 pieces.append(break_string)
+            previous_text = block.text
         text = " ".join(pieces)
-        if break_string:
-            escaped = re.escape(break_string)
-            text = re.sub(r"\s*" + escaped + r"\s*", break_string, text)
-            text = re.sub(r"(?:" + escaped + r")+", break_string, text)
-            text = text.strip().strip(break_string).strip()
+        for marker in (break_string, soft_break_string):
+            if marker:
+                escaped = re.escape(marker)
+                text = re.sub(r"\s*" + escaped + r"\s*", marker, text)
+                text = re.sub(r"(?:" + escaped + r")+", marker, text)
+        text = text.strip()
+        for marker in (break_string, soft_break_string):
+            if marker:
+                text = text.removeprefix(marker).removesuffix(marker).strip()
         if self.config.remove_endnotes:
             text = re.sub(r'(?<=[a-zA-Z.,!?;”")])\d+', "", text)
         if self.config.remove_reference_numbers:
@@ -133,7 +184,7 @@ class EpubBookParser(BaseBookParser):
             text = re.sub(replacement["search"], replacement["replace"], text)
         return text
 
-    def get_chapters(self, break_string) -> List[Tuple[str, str]]:
+    def get_chapters(self, break_string, soft_break_string="") -> List[Tuple[str, str]]:
         blocks = self._blocks()
         if not blocks:
             return []
@@ -146,10 +197,16 @@ class EpubBookParser(BaseBookParser):
 
         markers = []
         for title, file_name, anchor in self._navigation():
-            position = positions.get((file_name, anchor)) if anchor else file_starts.get(file_name)
-            if position is not None and (not markers or markers[-1][0] != position):
+            anchor_position = positions.get((file_name, anchor)) if anchor else file_starts.get(file_name)
+            if anchor_position is None:
+                continue
+            start = max(anchor_position, markers[-1][0] + 1 if markers else 0)
+            end = min(anchor_position + 80, len(blocks))
+            position = self._heading_position(blocks, title, start, end) if start < end else None
+            if position is None and anchor_position > (markers[-1][0] if markers else -1):
+                position = anchor_position
+            if position is not None:
                 markers.append((position, title))
-        markers.sort(key=lambda marker: marker[0])
         if not markers:
             markers = sorted(
                 (idx, blocks[idx].text[:60] or "Untitled") for idx in file_starts.values()
@@ -160,7 +217,7 @@ class EpubBookParser(BaseBookParser):
             end = markers[index + 1][0] if index + 1 < len(markers) else len(blocks)
             if title.casefold() in NON_NARRATED_TITLES:
                 continue
-            text = self._clean_text(blocks[start:end], break_string)
+            text = self._clean_text(blocks[start:end], break_string, soft_break_string)
             if text.strip():
                 chapters.append((title, text))
         return chapters

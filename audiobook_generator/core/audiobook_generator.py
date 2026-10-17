@@ -122,7 +122,9 @@ class AudiobookGenerator:
             tts_provider = get_tts_provider(self.config)
 
             os.makedirs(self.config.output_folder, exist_ok=True)
-            chapters = book_parser.get_chapters(tts_provider.get_break_string())
+            chapters = book_parser.get_chapters(
+                tts_provider.get_break_string(), tts_provider.get_soft_break_string()
+            )
             # Filter out empty or very short chapters
             chapters = [(title, text) for title, text in chapters if text.strip()]
 

@@ -29,6 +29,9 @@ class BaseTTSProvider:  # Base interface for TTS providers
     def get_break_string(self):
         raise NotImplementedError
 
+    def get_soft_break_string(self):
+        return ""
+
     def get_output_file_extension(self):
         raise NotImplementedError
 

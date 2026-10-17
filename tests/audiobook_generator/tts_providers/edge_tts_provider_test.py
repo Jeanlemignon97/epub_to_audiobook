@@ -1,4 +1,5 @@
 import unittest
+import asyncio
 from unittest.mock import MagicMock
 
 from audiobook_generator.config.general_config import GeneralConfig
@@ -155,6 +156,33 @@ class TestEdgeTtsProvider(unittest.TestCase):
         parsed = comm.parsed
         self.assertEqual(parsed, ["This is a test without breaks"])
 
+    def test_distinguishes_short_line_breath_from_heading_pause(self):
+        comm = CommWithPauses(
+            text="Titre@BRK#Ligne sans point@SBRK#suite.",
+            voice_name="en-US-GuyNeural", break_string="@BRK#",
+            soft_break_string="@SBRK#", break_duration=900,
+            soft_break_duration=220,
+        )
+
+        self.assertEqual(comm.parsed, ["Titre", "Ligne sans point", "suite."])
+        self.assertEqual(comm.pause_durations, [900, 220])
+
+    def test_repeated_identical_text_still_gets_a_pause(self):
+        comm = CommWithPauses(
+            text="oui@SBRK#oui", voice_name="en-US-GuyNeural",
+            break_string="@BRK#", soft_break_string="@SBRK#",
+            soft_break_duration=220,
+        )
+
+        async def fake_audio(_text):
+            return b"A"
+
+        comm.generate_audio = fake_audio
+        comm.generate_pause = lambda duration: f"P{duration}".encode()
+        asyncio.run(comm.chunkify())
+
+        self.assertEqual(comm.file.getvalue(), b"AP220A")
+
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()
