@@ -19,6 +19,14 @@ def _number(value: float) -> str:
     return f"{value:.2f}".replace(".", ",")
 
 
+def estimated_conversion_minutes(job: BookJob) -> int:
+    speed_factor = 12 if job.provider == "edge" else 20
+    total = max(1, round(job.analysis.estimated_hours * 60 / speed_factor))
+    if job.status is JobStatus.CONVERTING:
+        return max(1, round(total * (1 - job.progress)))
+    return total
+
+
 def render_queue(jobs: list[BookJob]) -> str:
     if not jobs:
         return """
@@ -37,6 +45,12 @@ def render_queue(jobs: list[BookJob]) -> str:
             if job.error else ""
         )
         ready = '<span class="ready-note">M4B prêt</span>' if job.final_path else ""
+        eta_label = (
+            "Temps restant estimé"
+            if job.status is JobStatus.CONVERTING
+            else "Conversion estimée"
+        )
+        eta = estimated_conversion_minutes(job)
         cards.append(f"""
         <article class="job-card" data-status="{job.status.value}">
           <div class="book-mark" aria-hidden="true">▤</div>
@@ -57,6 +71,7 @@ def render_queue(jobs: list[BookJob]) -> str:
               <span>{job.completed_chapters} / {job.analysis.chapter_count} chapitres</span>
               <span>≈ {_number(job.analysis.estimated_hours)} h</span>
               <span>≈ {_number(job.analysis.estimated_cost)} €</span>
+              <span>{eta_label} : ≈ {eta} min</span>
             </div>
             {error}
           </div>

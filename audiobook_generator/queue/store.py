@@ -45,6 +45,7 @@ class JobStore:
                     provider TEXT NOT NULL,
                     model TEXT NOT NULL,
                     voice TEXT NOT NULL,
+                    destination_dir TEXT NOT NULL DEFAULT '',
                     title TEXT NOT NULL,
                     author TEXT NOT NULL,
                     chapter_count INTEGER NOT NULL,
@@ -62,6 +63,13 @@ class JobStore:
                 )
                 """
             )
+            columns = {
+                row[1] for row in self._connection.execute("PRAGMA table_info(jobs)")
+            }
+            if "destination_dir" not in columns:
+                self._connection.execute(
+                    "ALTER TABLE jobs ADD COLUMN destination_dir TEXT NOT NULL DEFAULT ''"
+                )
 
     def _recover_interrupted_jobs(self) -> None:
         with self._connection:
@@ -82,7 +90,7 @@ class JobStore:
     def add(self, job: BookJob) -> BookJob:
         values = (
             job.id, job.source_path, job.output_dir, job.original_name,
-            job.provider, job.model, job.voice, job.analysis.title,
+            job.provider, job.model, job.voice, job.destination_dir, job.analysis.title,
             job.analysis.author, job.analysis.chapter_count,
             job.analysis.total_characters, job.analysis.estimated_hours,
             job.analysis.estimated_cost, job.status.value, job.progress,
@@ -94,11 +102,11 @@ class JobStore:
                 """
                 INSERT INTO jobs (
                     id, source_path, output_dir, original_name, provider, model,
-                    voice, title, author, chapter_count, total_characters,
+                    voice, destination_dir, title, author, chapter_count, total_characters,
                     estimated_hours, estimated_cost, status, progress,
                     completed_chapters, error, final_path, max_cost, created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 values,
             )
@@ -110,6 +118,7 @@ class JobStore:
             id=row["id"], source_path=row["source_path"],
             output_dir=row["output_dir"], original_name=row["original_name"],
             provider=row["provider"], model=row["model"], voice=row["voice"],
+            destination_dir=row["destination_dir"],
             analysis=BookAnalysis(
                 title=row["title"], author=row["author"],
                 chapter_count=row["chapter_count"],

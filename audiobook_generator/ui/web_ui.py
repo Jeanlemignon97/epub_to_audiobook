@@ -12,8 +12,27 @@ from audiobook_generator.ui.queue_view import render_queue, selector_choices
 from audiobook_generator.ui.voice_preview import VoicePreview
 
 
-OPENAI_VOICES = ["coral", "marin", "cedar", "nova", "shimmer", "fable", "onyx"]
-EDGE_VOICES = ["fr-FR-DeniseNeural", "fr-FR-HenriNeural", "fr-CA-SylvieNeural", "fr-CA-AntoineNeural"]
+OPENAI_VOICES = [
+    ("Alloy — chaleureuse et équilibrée", "alloy"),
+    ("Marin — naturelle et posée", "marin"),
+    ("Cedar — grave et calme", "cedar"),
+    ("Coral — claire et expressive", "coral"),
+    ("Onyx — profonde", "onyx"),
+    ("Fable — narrative", "fable"),
+    ("Nova — dynamique", "nova"),
+    ("Shimmer — douce", "shimmer"),
+    ("Ash", "ash"), ("Ballad", "ballad"), ("Echo", "echo"),
+    ("Sage", "sage"), ("Verse", "verse"),
+]
+EDGE_VOICES = [
+    ("Guy — anglais US, agréable", "en-US-GuyNeural"),
+    ("Henri — français France", "fr-FR-HenriNeural"),
+    ("Denise — français France", "fr-FR-DeniseNeural"),
+    ("Sylvie — français Canada", "fr-CA-SylvieNeural"),
+    ("Antoine — français Canada", "fr-CA-AntoineNeural"),
+    ("Jenny — anglais US", "en-US-JennyNeural"),
+    ("Aria — anglais US", "en-US-AriaNeural"),
+]
 
 
 def _refresh(service: QueueService, selected_id=None):
@@ -31,8 +50,8 @@ def _refresh(service: QueueService, selected_id=None):
 
 def _provider_options(provider: str):
     if provider == "openai":
-        return gr.update(choices=OPENAI_VOICES, value="coral"), gr.update(visible=True)
-    return gr.update(choices=EDGE_VOICES, value="fr-FR-DeniseNeural"), gr.update(visible=False)
+        return gr.update(choices=OPENAI_VOICES, value="alloy"), gr.update(visible=True)
+    return gr.update(choices=EDGE_VOICES, value="en-US-GuyNeural"), gr.update(visible=False)
 
 
 def create_ui(config: UiConfig, service: QueueService | None = None):
@@ -40,15 +59,21 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
     service = service or QueueService(data_dir)
     previewer = VoicePreview(service.data_dir / "previews")
     css_path = Path(__file__).with_name("styles.css")
+    default_destination = os.environ.get(
+        "AUDIOBOOK_OUTPUT_DIR", str(Path.home() / "Documents" / "Livres audio")
+    )
+    destination_label = os.environ.get("AUDIOBOOK_OUTPUT_LABEL", default_destination)
 
-    def add_books(files, provider, model, voice, max_cost):
+    def add_books(files, provider, model, voice, max_cost, destination, api_key):
         try:
             if not files:
                 raise ValueError("Sélectionnez au moins un fichier EPUB.")
             ceiling = float(max_cost) if max_cost and float(max_cost) > 0 else None
+            if provider == "openai":
+                service.set_openai_api_key(api_key)
             jobs = service.add_books(
                 files, provider=provider, model=model if provider == "openai" else "",
-                voice=voice, max_cost=ceiling,
+                voice=voice, max_cost=ceiling, destination_dir=destination,
             )
             service.start()
             message = f"✅ {len(jobs)} livre(s) ajouté(s). La conversion démarre dans l’ordre affiché."
@@ -57,9 +82,12 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
         queue, selector, download = _refresh(service)
         return message, None, queue, selector, download
 
-    def preview_voice(provider, model, voice):
+    def preview_voice(provider, model, voice, api_key):
         try:
-            path = previewer.generate(provider, model if provider == "openai" else "", voice)
+            path = previewer.generate(
+                provider, model if provider == "openai" else "", voice,
+                api_key=api_key,
+            )
             return str(path), "✅ Extrait prêt. Écoutez-le avant de lancer vos livres."
         except Exception as exc:
             return None, f"❌ {exc}"
@@ -90,7 +118,7 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
         css_paths=css_path,
         fill_width=True,
     ) as ui:
-        with gr.Column(elem_classes="app-shell"):
+        with gr.Column(elem_classes="app-shell", min_width=0):
             gr.HTML("""
             <header class="hero-copy">
               <h1>Convertir mes EPUB</h1>
@@ -102,12 +130,15 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
                     label="Déposer jusqu’à 3 livres EPUB",
                     file_types=[".epub"], file_count="multiple", type="filepath",
                 )
-                with gr.Row():
+                with gr.Row(elem_classes="settings-row"):
                     provider = gr.Dropdown(
                         [("OpenAI (recommandé)", "openai"), ("Edge (gratuit)", "edge")],
                         value="openai", label="Moteur vocal",
                     )
-                    voice = gr.Dropdown(OPENAI_VOICES, value="coral", label="Voix")
+                    voice = gr.Dropdown(
+                        OPENAI_VOICES, value="alloy", label="Voix",
+                        allow_custom_value=True,
+                    )
                     model = gr.Dropdown(
                         ["gpt-4o-mini-tts", "tts-1-hd", "tts-1"],
                         value="gpt-4o-mini-tts", label="Modèle",
@@ -115,6 +146,16 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
                     max_cost = gr.Number(
                         value=0, minimum=0, label="Plafond par livre (€)",
                         info="0 désactive le plafond. Le montant affiché reste une estimation.",
+                    )
+                with gr.Row(elem_classes="settings-row"):
+                    destination = gr.Textbox(
+                        value=default_destination,
+                        label="Destination du M4B",
+                        info=f"Dossier visible sur cet ordinateur : {destination_label}",
+                    )
+                    api_key = gr.Textbox(
+                        value="", type="password", label="Clé API OpenAI (facultative)",
+                        info="Gardée seulement en mémoire jusqu’au redémarrage.",
                     )
                 with gr.Row(elem_classes="action-row"):
                     preview_button = gr.Button("▶ Écouter un extrait", min_width=180)
@@ -143,9 +184,12 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
             """)
 
         provider.change(_provider_options, provider, [voice, model])
-        preview_button.click(preview_voice, [provider, model, voice], [preview_audio, notice])
+        preview_button.click(
+            preview_voice, [provider, model, voice, api_key], [preview_audio, notice]
+        )
         add_button.click(
-            add_books, [files, provider, model, voice, max_cost],
+            add_books,
+            [files, provider, model, voice, max_cost, destination, api_key],
             [notice, files, queue_html, selected_job, download],
         )
         pause_button.click(

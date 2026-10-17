@@ -38,6 +38,7 @@ class BookJob:
     model: str
     voice: str
     analysis: BookAnalysis
+    destination_dir: str = ""
     status: JobStatus = JobStatus.PENDING
     progress: float = 0.0
     completed_chapters: int = 0

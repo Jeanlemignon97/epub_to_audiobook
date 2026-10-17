@@ -29,22 +29,28 @@ class VoicePreview:
         self.environ = dict(os.environ if environ is None else environ)
         self.openai_client = openai_client
 
-    def generate(self, provider: str, model: str, voice: str, text: str = DEFAULT_PREVIEW_TEXT) -> Path:
+    def generate(
+        self, provider: str, model: str, voice: str,
+        text: str = DEFAULT_PREVIEW_TEXT, api_key: str = "",
+    ) -> Path:
         excerpt = (text or DEFAULT_PREVIEW_TEXT).strip()[:700]
         destination = self.output_dir / f"preview-{uuid.uuid4().hex}.mp3"
         temporary = destination.with_name(f".{destination.stem}.part.mp3")
         if provider == "openai":
-            if not self.environ.get("OPENAI_API_KEY"):
+            effective_key = (api_key or self.environ.get("OPENAI_API_KEY", "")).strip()
+            if not effective_key:
                 raise MissingProviderKey("La variable OPENAI_API_KEY est absente.")
             client = self.openai_client
             if client is None:
                 from openai import OpenAI
-                client = OpenAI(api_key=self.environ["OPENAI_API_KEY"])
-            response = client.audio.speech.create(
+                client = OpenAI(api_key=effective_key)
+            request = dict(
                 model=model or "gpt-4o-mini-tts", voice=voice or "coral",
-                input=excerpt, instructions=NARRATION_INSTRUCTIONS,
-                response_format="mp3", speed=1.0,
+                input=excerpt, response_format="mp3", speed=1.0,
             )
+            if (model or "gpt-4o-mini-tts") == "gpt-4o-mini-tts":
+                request["instructions"] = NARRATION_INSTRUCTIONS
+            response = client.audio.speech.create(**request)
             temporary.write_bytes(response.content)
         elif provider == "edge":
             import edge_tts

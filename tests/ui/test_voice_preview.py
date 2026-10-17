@@ -39,3 +39,15 @@ def test_openai_preview_is_short_and_uses_narration_instructions(tmp_path: Path)
     assert request["voice"] == "coral"
     assert len(request["input"]) <= 700
     assert "chaleureuse" in request["instructions"]
+
+
+def test_openai_preview_accepts_a_temporary_ui_key(tmp_path: Path):
+    client = FakeClient()
+    preview = VoicePreview(tmp_path, environ={}, openai_client=client)
+
+    result = preview.generate(
+        "openai", "gpt-4o-mini-tts", "alloy", api_key="temporary-key"
+    )
+
+    assert result.is_file()
+    assert preview.environ == {}

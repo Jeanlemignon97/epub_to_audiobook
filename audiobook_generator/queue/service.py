@@ -7,6 +7,7 @@ from pathlib import Path
 
 from audiobook_generator.queue.analyzer import analyze_epub
 from audiobook_generator.queue.models import BookJob
+from audiobook_generator.queue.naming import safe_book_name
 from audiobook_generator.queue.runner import QueueRunner
 from audiobook_generator.queue.store import JobStore
 
@@ -29,27 +30,34 @@ class QueueService:
         model: str,
         voice: str,
         max_cost: float | None = None,
+        destination_dir: str | Path = "",
     ) -> list[BookJob]:
         files = list(files or [])
         if len(files) > self.MAX_FILES_PER_IMPORT:
             raise ValueError(
                 f"Vous pouvez ajouter au maximum {self.MAX_FILES_PER_IMPORT} EPUB à la fois."
             )
+        destination = (
+            str(Path(destination_dir).expanduser().resolve()) if destination_dir else ""
+        )
+        if destination:
+            Path(destination).mkdir(parents=True, exist_ok=True)
         jobs = []
         for uploaded in files:
             source = Path(uploaded if isinstance(uploaded, (str, os.PathLike)) else uploaded.name)
             job_id = str(uuid.uuid4())
-            job_dir = self.jobs_dir / job_id
+            analysis = analyze_epub(source, provider, model)
+            job_dir = self.jobs_dir / f"{safe_book_name(analysis.title)}-{job_id[:8]}"
             job_dir.mkdir(parents=True, exist_ok=False)
             private_source = job_dir / "source.epub"
             try:
                 shutil.copy2(source, private_source)
-                analysis = analyze_epub(private_source, provider, model)
                 job = BookJob(
                     id=job_id, source_path=str(private_source),
                     output_dir=str(job_dir / "chapters"), original_name=source.name,
                     provider=provider, model=model, voice=voice,
                     analysis=analysis, max_cost=max_cost,
+                    destination_dir=destination,
                 )
                 self.store.add(job)
                 jobs.append(job)
@@ -57,6 +65,14 @@ class QueueService:
                 shutil.rmtree(job_dir, ignore_errors=True)
                 raise
         return jobs
+
+    def set_openai_api_key(self, api_key: str) -> None:
+        key = (api_key or "").strip()
+        if not key:
+            return
+        if not hasattr(self.runner, "environ"):
+            self.runner.environ = {}
+        self.runner.environ["OPENAI_API_KEY"] = key
 
     def list_jobs(self):
         return self.store.list_jobs()

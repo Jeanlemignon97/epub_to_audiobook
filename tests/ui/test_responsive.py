@@ -12,3 +12,5 @@ def test_responsive_css_covers_required_width_classes_and_accessibility():
     assert "min-height: 48px" in css
     assert "overflow-wrap" in css
     assert "max-width" in css
+    assert ".settings-row { flex-direction: column !important; }" in css
+    assert "min-width: 0 !important" in css

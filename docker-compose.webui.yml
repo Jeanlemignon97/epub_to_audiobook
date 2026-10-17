@@ -4,6 +4,8 @@ services:
     image: jeanlemignon97/epub-to-audiobook:local
     environment:
       AUDIOBOOK_DATA_DIR: /data
+      AUDIOBOOK_OUTPUT_DIR: /exports
+      AUDIOBOOK_OUTPUT_LABEL: ${AUDIOBOOK_EXPORT_DIR:-./audiobook_exports}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       MS_TTS_KEY: ${MS_TTS_KEY:-}
       MS_TTS_REGION: ${MS_TTS_REGION:-}
@@ -11,5 +13,6 @@ services:
       - "7860:7860"
     volumes:
       - ./audiobook_data:/data
+      - ${AUDIOBOOK_EXPORT_DIR:-./audiobook_exports}:/exports
     command: ["python3", "/app_src/main_ui.py", "--host", "0.0.0.0", "--port", "7860"]
     restart: unless-stopped

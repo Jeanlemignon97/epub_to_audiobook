@@ -25,6 +25,14 @@ def test_queue_card_contains_primary_values_and_textual_status():
     assert "4 / 10 chapitres" in html
     assert "1,25 €" in html
     assert "40 %" in html
+    assert "Temps restant estimé" in html
+    assert "≈ 6 min" in html
+
+
+def test_pending_job_displays_total_conversion_estimate():
+    html = render_queue([job(JobStatus.PENDING)])
+    assert "Conversion estimée" in html
+    assert "≈ 10 min" in html
 
 
 def test_error_and_completed_states_are_explicit():

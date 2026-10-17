@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import re
 import signal
 import subprocess
 import sys
@@ -11,6 +10,7 @@ from pathlib import Path
 
 from audiobook_generator.core.m4b_packager import ChapterTrack, M4BPackager
 from audiobook_generator.queue.models import BookJob, JobStatus
+from audiobook_generator.queue.naming import safe_book_name
 from audiobook_generator.queue.store import InvalidTransition, JobStore
 
 
@@ -59,11 +59,6 @@ class QueueRunner:
         ):
             raise RuntimeError("Les variables MS_TTS_KEY et MS_TTS_REGION sont absentes.")
 
-    @staticmethod
-    def _safe_book_name(title: str) -> str:
-        safe = re.sub(r"[^\w\s-]", "", title, flags=re.UNICODE)
-        return re.sub(r"\s+", "_", safe.strip())[:100] or "livre_audio"
-
     def _command(self, job: BookJob) -> list[str]:
         main_path = Path(__file__).resolve().parents[2] / "main.py"
         command = [
@@ -85,7 +80,7 @@ class QueueRunner:
     def _tracks(job: BookJob) -> list[ChapterTrack]:
         paths = sorted(Path(job.output_dir).glob("[0-9][0-9][0-9][0-9]_*.mp3"))
         return [
-            ChapterTrack(path, re.sub(r"^\d+_", "", path.stem).replace("_", " "))
+            ChapterTrack(path, path.stem.split("_", 1)[-1].replace("_", " "))
             for path in paths if path.stat().st_size > 0
         ]
 
@@ -137,7 +132,10 @@ class QueueRunner:
             if not tracks:
                 raise RuntimeError("Aucun chapitre audio n’a été produit.")
             job_dir = Path(job.output_dir).parent
-            final_path = job_dir / f"{self._safe_book_name(job.analysis.title)}.m4b"
+            destination_root = Path(job.destination_dir) if job.destination_dir else job_dir
+            destination_dir = destination_root / safe_book_name(job.analysis.title)
+            destination_dir.mkdir(parents=True, exist_ok=True)
+            final_path = destination_dir / f"{safe_book_name(job.analysis.title)}.m4b"
             self.packager.package(tracks, final_path, job.analysis.title, job.analysis.author)
             self.store.transition(
                 job.id, JobStatus.COMPLETED, progress=1.0,

@@ -21,6 +21,13 @@ Prérequis : Docker Desktop ou Docker Engine avec Compose.
    dans la base de données. Vous pouvez aussi choisir **Edge (gratuit)** dans
    l’interface sans ajouter de clé.
 
+   Vous pouvez aussi coller la clé dans le champ masqué de l’interface : elle
+   reste uniquement en mémoire jusqu’au redémarrage et n’est pas enregistrée.
+
+   Pour choisir où recevoir les M4B, définissez `AUDIOBOOK_EXPORT_DIR` dans
+   `.env` (par exemple `/Users/votre-nom/Documents/Livres audio`). La destination
+   peut ensuite être affinée pour chaque ajout dans l’interface.
+
 3. Construisez et lancez l’application :
 
    ```bash
@@ -30,8 +37,10 @@ Prérequis : Docker Desktop ou Docker Engine avec Compose.
 4. Ouvrez [http://127.0.0.1:7860](http://127.0.0.1:7860), choisissez une voix,
    écoutez l’extrait, puis déposez de un à trois EPUB.
 
-Les résultats restent dans `audiobook_data/jobs/<identifiant>/`. Chaque dossier
-contient l’EPUB importé, les MP3 intermédiaires réutilisables et le M4B final.
+Les données de reprise restent dans `audiobook_data/jobs/<nom-du-livre>-<identifiant>/`. Chaque
+dossier contient l’EPUB importé et les MP3 intermédiaires réutilisables. Le M4B
+final est copié dans un dossier au nom du livre sous la destination choisie,
+`audiobook_exports` par défaut.
 
 ## Quel moteur choisir ?
 

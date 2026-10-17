@@ -17,6 +17,8 @@
   min-height: 100vh;
 }
 
+.gradio-container, .gradio-container * { box-sizing: border-box; }
+
 .app-shell {
   width: min(100% - 32px, 1180px);
   max-width: 1180px;
@@ -25,6 +27,9 @@
 
 .hero-copy h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin-bottom: .25rem; }
 .hero-copy p { color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); }
+.hero-copy h1, .hero-copy p {
+  max-width: 100%; white-space: normal; overflow-wrap: anywhere;
+}
 .panel, .job-card, .empty-queue {
   background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
   border: 1px solid var(--border);
@@ -74,11 +79,27 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 @media (max-width: 599px) {
-  .app-shell { width: min(100% - 20px, 1180px); }
+  .gradio-container { width: 100% !important; min-width: 0 !important; padding-inline: 0 !important; }
+  .gradio-container main,
+  .gradio-container .wrap,
+  .gradio-container .contain {
+    width: 100% !important; max-width: 100% !important;
+    min-width: 0 !important; margin-inline: 0 !important; padding-inline: 0 !important;
+  }
+  .app-shell {
+    width: calc(100% + var(--size-8) + var(--size-8)) !important;
+    max-width: calc(100% + var(--size-8) + var(--size-8)) !important;
+    min-width: 0 !important;
+    margin-inline: calc(-1 * var(--size-8)) !important;
+    padding-inline: 10px;
+  }
+  .panel, .settings-row, .action-row { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
   .job-card { grid-template-columns: 44px minmax(0, 1fr); gap: 12px; padding: 14px; }
   .book-mark { width: 42px; height: 52px; }
   .job-progress { grid-column: 1 / -1; }
   .job-metrics { justify-content: flex-start; }
+  .settings-row { flex-direction: column !important; }
+  .settings-row > * { width: 100% !important; min-width: 0 !important; }
   .action-row { flex-direction: column; }
 }
 

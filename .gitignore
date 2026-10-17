@@ -29,6 +29,7 @@ Thumbs.db
 # audio files
 audiobook_output/
 audiobook_data/
+audiobook_exports/
 
 private_examples/
 
