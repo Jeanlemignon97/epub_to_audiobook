@@ -42,6 +42,14 @@ dossier contient l’EPUB importé et les MP3 intermédiaires réutilisables. Le
 final est copié dans un dossier au nom du livre sous la destination choisie,
 `audiobook_exports` par défaut.
 
+Les repères du M4B suivent les parties, chapitres et annexes de la navigation
+EPUB, avec leurs titres complets. Les sous-rubriques restent dans l’audio sans
+créer des centaines de pistes très courtes. Le sommaire imprimé, la couverture
+et l’index ne sont pas narrés ; sur les EPUB issus d’un PDF, les numéros de page
+isolés et les en-têtes répétés sont aussi retirés lorsque leur structure est
+reconnaissable. Les titres et séparations de paragraphes reçoivent une pause
+avec les moteurs vocaux qui la prennent en charge.
+
 ## Quel moteur choisir ?
 
 - **OpenAI / `gpt-4o-mini-tts`** : choix recommandé pour une narration

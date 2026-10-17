@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from audiobook_generator.queue.models import BookAnalysis, BookJob, JobStatus
@@ -96,3 +97,16 @@ def test_retry_returns_failed_job_to_pending(tmp_path: Path):
     runner.retry("job")
 
     assert store.get("job").status is JobStatus.PENDING
+
+
+def test_tracks_use_full_epub_titles_from_manifest(tmp_path: Path):
+    job = make_job(tmp_path)
+    output = Path(job.output_dir)
+    output.mkdir()
+    (output / "0001_Chapitre_1_Un_nouveau_titre.mp3").write_bytes(b"audio")
+    (output / "chapters.json").write_text(
+        json.dumps(["Chapitre 1 : Un nouveau titre"], ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    assert QueueRunner._tracks(job)[0].title == "Chapitre 1 : Un nouveau titre"

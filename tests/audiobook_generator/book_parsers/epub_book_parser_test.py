@@ -18,7 +18,9 @@ class TestGetBookParser(unittest.TestCase):
         self.assertEqual(parser.get_book_author(), "Daniel Defoe")
         self.assertEqual(parser.get_book_title(), "The Life and Adventures of Robinson Crusoe")
         self.assertEqual(parser._sanitize_title(parser.get_book_title(), " @BRK#"), "The_Life_and_Adventures_of_Robinson_Crusoe")
-        self.assertEqual(len(parser.get_chapters("   ")), 24)
+        chapters = parser.get_chapters(" @BRK#")
+        self.assertEqual(len(chapters), 23)
+        self.assertEqual(chapters[2][0], "CHAPTER I. START IN LIFE")
 
     def test_unsupported_file_format(self):
         # Set up a config mock with an unsupported file extension

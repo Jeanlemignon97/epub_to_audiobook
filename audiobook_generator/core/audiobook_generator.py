@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import json
 from pathlib import Path
 
 from audiobook_generator.book_parsers.base_book_parser import get_book_parser
@@ -124,6 +125,14 @@ class AudiobookGenerator:
             chapters = book_parser.get_chapters(tts_provider.get_break_string())
             # Filter out empty or very short chapters
             chapters = [(title, text) for title, text in chapters if text.strip()]
+
+            manifest = Path(self.config.output_folder) / "chapters.json"
+            temporary_manifest = manifest.with_suffix(".json.part")
+            temporary_manifest.write_text(
+                json.dumps([title for title, _ in chapters], ensure_ascii=False),
+                encoding="utf-8",
+            )
+            temporary_manifest.replace(manifest)
 
             logger.info(f"Chapters count: {len(chapters)}.")
 

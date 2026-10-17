@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import json
+import re
 import signal
 import subprocess
 import sys
@@ -79,8 +81,15 @@ class QueueRunner:
     @staticmethod
     def _tracks(job: BookJob) -> list[ChapterTrack]:
         paths = sorted(Path(job.output_dir).glob("[0-9][0-9][0-9][0-9]_*.mp3"))
+        manifest = Path(job.output_dir) / "chapters.json"
+        titles = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else []
         return [
-            ChapterTrack(path, path.stem.split("_", 1)[-1].replace("_", " "))
+            ChapterTrack(
+                path,
+                titles[int(re.match(r"\d+", path.name).group()) - 1]
+                if int(re.match(r"\d+", path.name).group()) <= len(titles)
+                else path.stem.split("_", 1)[-1].replace("_", " "),
+            )
             for path in paths if path.stat().st_size > 0
         ]
 
