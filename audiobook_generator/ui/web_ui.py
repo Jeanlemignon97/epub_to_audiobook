@@ -219,8 +219,13 @@ def create_ui(config: UiConfig, service: QueueService | None = None):
 
 def host_ui(config: UiConfig):
     ui = create_ui(config)
+    output_dir = Path(
+        os.environ.get(
+            "AUDIOBOOK_OUTPUT_DIR", str(Path.home() / "Documents" / "Livres audio")
+        )
+    )
     ui.launch(
         server_name=config.host,
         server_port=config.port,
-        allowed_paths=[str(ui.queue_service.data_dir)],
+        allowed_paths=[str(ui.queue_service.data_dir.resolve()), str(output_dir.resolve())],
     )
