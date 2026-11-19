@@ -47,6 +47,29 @@ def test_ffmetadata_escapes_titles_and_accumulates_boundaries(tmp_path: Path):
     assert "START=10500\nEND=12750" in metadata
 
 
+def test_audio_staging_name_is_not_hidden_before_publish(tmp_path: Path):
+    track = tmp_path / "0001.mp3"
+    track.write_bytes(b"audio")
+    destination = tmp_path / "book.m4b"
+    staged_paths = []
+
+    def runner(command, **kwargs):
+        if command[0] == "ffprobe":
+            return CompletedProcess(command, 0, stdout="1.0\n")
+        staged = Path(command[-1])
+        staged_paths.append(staged)
+        staged.write_bytes(b"m4b")
+        return CompletedProcess(command, 0, stdout="")
+
+    packager = M4BPackager(runner=runner, which=lambda _: "/usr/bin/tool")
+    packager.package([ChapterTrack(track, "Chapitre")], destination, "Livre", "Auteur")
+
+    assert len(staged_paths) == 1
+    assert staged_paths[0].name == "book.m4b"
+    assert staged_paths[0].parent != destination.parent
+    assert destination.read_bytes() == b"m4b"
+
+
 def test_missing_ffmpeg_keeps_source_tracks(tmp_path: Path):
     track = tmp_path / "0001.mp3"
     track.write_bytes(b"audio")

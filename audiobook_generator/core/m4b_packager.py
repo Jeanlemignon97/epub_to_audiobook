@@ -99,12 +99,11 @@ class M4BPackager:
 
         output = Path(destination)
         output.parent.mkdir(parents=True, exist_ok=True)
-        temporary_output = output.with_name(f".{output.stem}.part{output.suffix}")
-        temporary_output.unlink(missing_ok=True)
 
         try:
             with tempfile.TemporaryDirectory(dir=output.parent) as temp_dir:
                 temp = Path(temp_dir)
+                temporary_output = temp / output.name
                 concat_path = temp / "chapters.txt"
                 metadata_path = temp / "metadata.txt"
                 concat_path.write_text(
@@ -124,13 +123,11 @@ class M4BPackager:
                     capture_output=True,
                     text=True,
                 )
-            if not temporary_output.is_file() or temporary_output.stat().st_size == 0:
-                raise PackagingError("FFmpeg n’a produit aucun fichier audio.")
-            temporary_output.replace(output)
-            return output
+                if not temporary_output.is_file() or temporary_output.stat().st_size == 0:
+                    raise PackagingError("FFmpeg n’a produit aucun fichier audio.")
+                temporary_output.replace(output)
+                return output
         except PackagingError:
-            temporary_output.unlink(missing_ok=True)
             raise
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
-            temporary_output.unlink(missing_ok=True)
             raise PackagingError(f"Échec de l’assemblage M4B : {exc}") from exc
