@@ -6,6 +6,31 @@ coût et les limites des fournisseurs. Les chapitres terminés sont réutilisés
 après une pause ou une erreur, puis assemblés dans **un seul fichier M4B par
 livre**, avec des marqueurs de chapitres.
 
+## Préparer un EPUB français
+
+L'onglet **Préparer un EPUB** propose deux opérations :
+
+- **PDF → EPUB** : conversion locale, sans clé API. Le texte est extrait page par
+  page ; les pages scannées passent par Tesseract (français et anglais), installé
+  dans l'image Docker. Les PDF avec mise en page complexe, colonnes, tableaux ou
+  nombreuses images peuvent demander une correction manuelle. Vérifiez le
+  résultat dans Books avant de produire l'audio.
+- **Anglais → français** : traduction d'un EPUB sans DRM via l'API OpenAI.
+  Cliquez sur **Analyser le livre** pour voir un extrait et une estimation en
+  dollars US, puis confirmez le coût avant de lancer. Cette facture API est
+  distincte de l'abonnement ChatGPT. La traduction conserve les fichiers du
+  livre, les liens et les repères de navigation ; relisez les passages importants.
+
+Un livre est préparé à la fois. L'état reste dans
+`audiobook_data/preparation.sqlite3` si la page est actualisée. Si l'application
+est arrêtée, cliquez sur **Réessayer** après le redémarrage ; les sections EPUB
+déjà traduites sont réutilisées. Le résultat est enregistré dans un dossier au
+nom du livre sous la destination choisie (par défaut `Livres EPUB` dans la
+destination des livres audio), et peut être téléchargé dans la liste. Ouvrez
+ensuite l'EPUB dans Books ou déposez-le dans l'onglet **Livre audio** pour créer
+un M4B français. Pour traduire un PDF anglais, convertissez-le d'abord en EPUB,
+puis traduisez cet EPUB.
+
 ## Démarrage rapide avec Docker
 
 Prérequis : Docker Desktop ou Docker Engine avec Compose.
@@ -75,7 +100,7 @@ Avec Python 3.11 :
 
 ```bash
 python3.11 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt pytest
+.venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pytest -q
 docker compose -f docker-compose.webui.yml config
 ```
@@ -86,7 +111,8 @@ choisissez Edge et commencez avec l’EPUB présent dans `examples/`.
 ## Limites connues de cette première version
 
 - EPUB sans DRM uniquement ; aucun contournement de DRM n’est fourni.
-- Pas de traduction de langue ni de surlignage synchronisé du texte.
+- Pas de surlignage synchronisé du texte ; la traduction automatique demande
+  une relecture, surtout pour les livres techniques ou avec une mise en page riche.
 - L’estimation de coût est indicative et doit être vérifiée avant un gros lot.
 
 ---

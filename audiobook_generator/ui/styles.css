@@ -12,6 +12,18 @@
 }
 
 .gradio-container {
+  --body-text-color: #f8fafc;
+  --body-text-color-subdued: #b8c3d1;
+  --body-background-fill: #0a1422;
+  --background-fill-primary: #17263a;
+  --background-fill-secondary: #213249;
+  --block-background-fill: #17263a;
+  --block-label-text-color: #dce6f0;
+  --block-title-text-color: #f8fafc;
+  --input-background-fill: #213249;
+  --input-border-color: rgba(255, 255, 255, .18);
+  --button-secondary-background-fill: #213249;
+  --button-secondary-text-color: #f8fafc;
   background: radial-gradient(circle at top, #1b3148 0, #0a1422 52%);
   color: var(--text);
   min-height: 100vh;
@@ -30,6 +42,45 @@
 .hero-copy h1, .hero-copy p {
   max-width: 100%; white-space: normal; overflow-wrap: anywhere;
 }
+.book-tabs { min-width: 0; }
+.book-tabs [role="tablist"] { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 18px; }
+.book-tabs [role="tab"] {
+  min-height: 48px; padding: 10px 18px; white-space: normal;
+  border-radius: 12px; overflow-wrap: anywhere;
+}
+.book-tabs [role="tab"][aria-selected="true"] { color: var(--amber-strong); }
+.book-tabs [role="tabpanel"] { min-width: 0; }
+.book-tabs .panel { margin-block: 14px; padding: clamp(14px, 2.5vw, 24px); }
+.book-tabs .panel > .styler { background: transparent !important; }
+.book-tabs .panel > * { min-width: 0; }
+.preparation-choice { min-width: 0; }
+.preparation-choice label {
+  white-space: normal; height: auto; min-height: 48px;
+  background: var(--surface-soft) !important; color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+.preparation-choice label.selected { border-color: var(--amber) !important; }
+.preparation-choice label span { color: var(--text) !important; }
+.panel [data-testid="block-label"] {
+  background: var(--surface-soft) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  white-space: normal; height: auto; min-height: 32px;
+}
+.panel .file-preview-holder, .panel .file-preview,
+.panel .file-preview tr, .panel .file-preview td {
+  background: var(--surface-soft) !important;
+  color: var(--text) !important;
+}
+.panel .file-preview .download-link { color: var(--amber-strong) !important; }
+.analysis-result { max-width: 100%; overflow-wrap: anywhere; }
+.analysis-result p { line-height: 1.5; }
+.analysis-result blockquote {
+  border-left: 3px solid var(--amber); margin: 10px 0; padding: 10px 14px;
+  color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.preparation-card .ready-note { overflow-wrap: anywhere; }
+.translation-confirmation label { white-space: normal; height: auto; min-height: 48px; }
 .panel, .job-card, .empty-queue {
   background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
   border: 1px solid var(--border);
@@ -103,6 +154,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .settings-row > * { width: 100% !important; min-width: 0 !important; }
   .action-row { flex-direction: column; }
   .action-row > * { width: 100% !important; min-width: 0 !important; }
+  .book-tabs [role="tablist"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .book-tabs [role="tab"] { width: 100%; padding-inline: 8px; }
 }
 
 @media (min-width: 600px) and (max-width: 839px) {

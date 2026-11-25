@@ -1,5 +1,6 @@
 beautifulsoup4==4.13.4
 EbookLib==0.19
+PyMuPDF==1.26.6
 mutagen==1.47.0
 openai==1.85.0
 requests==2.32.4
